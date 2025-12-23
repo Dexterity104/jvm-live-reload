@@ -23,9 +23,7 @@ public class RuntimeShutdownHook implements Hook {
   public RuntimeShutdownHook() {
     buildSystemShutdownHooks = new IdentityHashMap<>(ReflectionUtils.getRegistredShutdownHooks());
     buildSystemHookThreadIds =
-        buildSystemShutdownHooks.keySet().stream()
-            .map(Thread::getId)
-            .collect(Collectors.toSet());
+        buildSystemShutdownHooks.keySet().stream().map(Thread::getId).collect(Collectors.toSet());
   }
 
   @Override

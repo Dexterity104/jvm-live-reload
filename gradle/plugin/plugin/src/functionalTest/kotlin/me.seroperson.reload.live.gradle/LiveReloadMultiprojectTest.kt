@@ -62,7 +62,8 @@ class LiveReloadMultiprojectTest : LiveReloadTestBase() {
         appCode.writeText(APP_CODE_2)
         textCode.writeText(TEXT_CODE_2)
 
-        val greetReloaded = runUntil(isBuildRunning, "http://localhost:9000/greet_reloaded", 200, "World Hello!")
+        val greetReloaded =
+            runUntil(isBuildRunning, "http://localhost:9000/greet_reloaded", 200, "World Hello!")
 
         runThread.interrupt()
 

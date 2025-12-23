@@ -1,8 +1,8 @@
 package me.seroperson.reload.live.gradle
 
-import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.atomic.AtomicBoolean
 
 abstract class LiveReloadTestBase {
     private val client = OkHttpClient()

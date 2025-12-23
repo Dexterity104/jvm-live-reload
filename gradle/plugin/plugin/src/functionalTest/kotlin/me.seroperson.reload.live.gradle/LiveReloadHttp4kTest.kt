@@ -32,7 +32,13 @@ class LiveReloadHttp4kTest : LiveReloadTestBase() {
         runner.withDebug(true)
         runner.withPluginClasspath()
         runner.withProjectDir(projectDir)
-        runner.withArguments(":liveReloadRun", "--info", "--watch-fs", "--stacktrace", "-Dorg.gradle.vfs.verbose=true")
+        runner.withArguments(
+            ":liveReloadRun",
+            "--info",
+            "--watch-fs",
+            "--stacktrace",
+            "-Dorg.gradle.vfs.verbose=true",
+        )
 
         val isBuildRunning = AtomicBoolean(true)
         val runThread =
@@ -52,7 +58,8 @@ class LiveReloadHttp4kTest : LiveReloadTestBase() {
 
         appCode.writeText(APP_CODE_2)
 
-        val greetReloaded = runUntil(isBuildRunning, "http://localhost:9000/greet_reloaded", 200, "World Hello")
+        val greetReloaded =
+            runUntil(isBuildRunning, "http://localhost:9000/greet_reloaded", 200, "World Hello")
 
         runThread.interrupt()
 
