@@ -12,9 +12,11 @@ clear-local-repos:
 
 [doc('Creates version.txt with current version according to git.')]
 calculate-version:
-  (if [ ! -e "version.txt" ]; then \
+  if [ ! -e "version.txt" ]; then \
     {{ sbt }} catVersion; \
-  fi) || true
+  else \
+    true; \
+  fi
 
 [private]
 is-release: calculate-version
@@ -25,9 +27,11 @@ test-sbt: publish-local-if-unpublished-sbt
 
 [private]
 publish-local-if-unpublished-sbt:
-  (if [ ! -e "$HOME/.ivy2/local/me.seroperson/jvm-live-reload-build-link/" ]; then \
+  if [ ! -e "$HOME/.ivy2/local/me.seroperson/jvm-live-reload-build-link/" ]; then \
     {{ sbt }} quickLocalPublish; \
-  fi) || true
+  else \
+    true; \
+  fi
 
 publish-local-sbt:
   {{ sbt }} quickLocalPublish
