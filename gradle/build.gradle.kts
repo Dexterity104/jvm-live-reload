@@ -1,17 +1,14 @@
 plugins {
     `kotlin-dsl`
     `java-gradle-plugin`
+    id("com.diffplug.spotless") version "8.0.0"
     id("com.gradle.plugin-publish") version "2.0.0"
     id("com.github.gmazzo.buildconfig") version "5.7.0"
 }
 
-repositories {
-    mavenCentral()
-}
+repositories { mavenCentral() }
 
-dependencies {
-    implementation(project(":core:runner"))
-}
+dependencies { implementation(project(":core:runner")) }
 
 fun readVersion() =
     listOf(
@@ -27,6 +24,19 @@ fun readVersion() =
 group = "me.seroperson"
 
 version = readVersion()
+
+spotless {
+    kotlin {
+        target("**/kotlin/**/*.kt")
+        ktfmt().googleStyle()
+        ktlint()
+    }
+    kotlinGradle {
+        target("**/*.gradle.kts")
+        ktfmt().googleStyle()
+        ktlint()
+    }
+}
 
 buildConfig {
     packageName("me.seroperson.reload.live.gradle")

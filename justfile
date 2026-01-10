@@ -39,18 +39,18 @@ publish-local-sbt:
 publish-sbt:
   {{ sbt }} ci-release
 
-test-gradle: publish-local-if-unpublished-sbt calculate-version
+test-gradle:
   {{ gradle }} :gradle:check
 
-publish-gradle: publish-local-if-unpublished-sbt is-release
+publish-gradle: is-release
   {{ gradle }} :gradle:publishPlugins \
     -Pgradle.publish.key=$GRADLE_PUBLISH_KEY \
     -Pgradle.publish.secret=$GRADLE_SECRET_KEY
 
-test-mill: calculate-version publish-local-mill
+test-mill: publish-local-mill
   {{ mill }} mill-live-reload.integration.testLocal
 
-publish-local-mill:
+publish-local-mill: calculate-version
   {{ mill }} mill-live-reload.publishLocal
 
 publish-mill: calculate-version
@@ -73,11 +73,11 @@ code-format-apply-mill:
   {{ mill }} mill-live-reload.reformat
 
 [private]
-code-format-check-gradle: publish-local-if-unpublished-sbt calculate-version
+code-format-check-gradle:
   {{ gradle }} spotlessCheck
 
 [private]
-code-format-apply-gradle: publish-local-if-unpublished-sbt calculate-version
+code-format-apply-gradle:
   {{ gradle }} spotlessApply
 
 [doc('Checks formatting. Fails if formatting does not match style.')]

@@ -50,9 +50,6 @@ jobs:
           mill-version: 1.1.0-RC2
       - uses: gradle/actions/setup-gradle@v5
 
-      - name: Publish local
-        run: just publish-local-if-unpublished-sbt
-
       - name: Check code formatting
         run: just code-format-check-all
 
