@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.Test
 
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
-class LiveReloadGrpcStreamingTest : LiveReloadTestBase() {
+class LiveReloadGrpcReflectionTest : LiveReloadTestBase() {
     @field:TempDir lateinit var projectDir: File
 
     private val appCode by lazy {
@@ -21,10 +21,10 @@ class LiveReloadGrpcStreamingTest : LiveReloadTestBase() {
     private val settingsFile by lazy { projectDir.resolve("settings.gradle.kts") }
 
     @Test
-    fun `reload server-streaming grpc method`() {
+    fun `reflection bidi streaming passthrough lists services`() {
         settingsFile.writeText(SETTINGS_CONTENT)
         buildFile.writeText(BUILD_CONTENT)
-        appCode.writeText(appCodeWithPrefix("Hi"))
+        appCode.writeText(APP_CODE)
 
         val runner = initGradleRunner(":liveReloadRun", projectDir)
         val isBuildRunning = AtomicBoolean(true)
@@ -41,37 +41,12 @@ class LiveReloadGrpcStreamingTest : LiveReloadTestBase() {
             }
         runThread.start()
 
-        val initial =
-            runServerStreamingUntil(
-                isBuildRunning,
-                "localhost",
-                9000,
-                "greeter.Greeter",
-                "StreamGreet",
-                byteArrayOf(),
-                listOf("Hi-1".toByteArray(), "Hi-2".toByteArray(), "Hi-3".toByteArray()),
-            )
-
-        appCode.writeText(appCodeWithPrefix("Yo"))
-
-        val reloaded =
-            runServerStreamingUntil(
-                isBuildRunning,
-                "localhost",
-                9000,
-                "greeter.Greeter",
-                "StreamGreet",
-                byteArrayOf(),
-                listOf("Yo-1".toByteArray(), "Yo-2".toByteArray(), "Yo-3".toByteArray()),
-            )
+        val ok = runReflectionUntil(isBuildRunning, "localhost", 9000, "grpc.health.v1.Health")
 
         runThread.interrupt()
 
-        assertTrue(initial && reloaded)
+        assertTrue(ok)
     }
-
-    private fun appCodeWithPrefix(prefix: String): String =
-        APP_CODE_TEMPLATE.replace("__PREFIX__", prefix)
 
     companion object {
         const val SETTINGS_CONTENT = ""
@@ -106,13 +81,14 @@ liveReload {
 application { mainClass = "AppKt" }
 """
 
-        const val APP_CODE_TEMPLATE =
+        const val APP_CODE =
             """
 import io.grpc.BindableService
 import io.grpc.MethodDescriptor
 import io.grpc.ServerBuilder
 import io.grpc.ServerCallHandler
 import io.grpc.ServerServiceDefinition
+import io.grpc.health.v1.HealthCheckResponse
 import io.grpc.protobuf.services.HealthStatusManager
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.stub.ServerCalls
@@ -123,34 +99,32 @@ fun main() {
     val health = HealthStatusManager()
     val server = ServerBuilder
         .forPort(8081)
-        .addService(GreeterService("__PREFIX__"))
+        .addService(GreeterService())
         .addService(health.healthService)
         .addService(ProtoReflectionService.newInstance())
         .build()
     try {
         server.start()
-        health.setStatus("", io.grpc.health.v1.HealthCheckResponse.ServingStatus.SERVING)
+        health.setStatus("", HealthCheckResponse.ServingStatus.SERVING)
         println("Server started on port 8081")
         Thread.currentThread().join()
     } catch (ex: InterruptedException) {
-        health.setStatus("", io.grpc.health.v1.HealthCheckResponse.ServingStatus.NOT_SERVING)
+        health.setStatus("", HealthCheckResponse.ServingStatus.NOT_SERVING)
         server.shutdown()
     }
 }
 
-class GreeterService(private val prefix: String) : BindableService {
+class GreeterService : BindableService {
     override fun bindService(): ServerServiceDefinition {
         val methodDescriptor = MethodDescriptor.newBuilder<ByteArray, ByteArray>()
-            .setType(MethodDescriptor.MethodType.SERVER_STREAMING)
-            .setFullMethodName("greeter.Greeter/StreamGreet")
+            .setType(MethodDescriptor.MethodType.UNARY)
+            .setFullMethodName("greeter.Greeter/Greet")
             .setRequestMarshaller(ByteArrayMarshaller())
             .setResponseMarshaller(ByteArrayMarshaller())
             .build()
 
-        val handler: ServerCallHandler<ByteArray, ByteArray> = ServerCalls.asyncServerStreamingCall { _, responseObserver ->
-            for (i in 1..3) {
-                responseObserver.onNext("${'$'}prefix-${'$'}i".toByteArray())
-            }
+        val handler: ServerCallHandler<ByteArray, ByteArray> = ServerCalls.asyncUnaryCall { _, responseObserver ->
+            responseObserver.onNext("Hello".toByteArray())
             responseObserver.onCompleted()
         }
 

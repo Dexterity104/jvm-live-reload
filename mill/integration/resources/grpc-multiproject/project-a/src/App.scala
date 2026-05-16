@@ -2,27 +2,24 @@ import io.grpc.{BindableService, MethodDescriptor, ServerCallHandler, ServerServ
 import io.grpc.MethodDescriptor.{Marshaller, MethodType}
 import io.grpc.health.v1.HealthCheckResponse
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
-import io.grpc.protobuf.services.{HealthStatusManager, ProtoReflectionService}
+import io.grpc.protobuf.services.HealthStatusManager
 import io.grpc.stub.{ServerCalls, StreamObserver}
 
 import java.io.{ByteArrayInputStream, InputStream}
 
 object App {
 
-  private val Prefix = "Hi"
-
   def main(args: Array[String]): Unit = {
     val health = new HealthStatusManager()
     val server = NettyServerBuilder
-      .forPort(me.seroperson.BuildInfo.port)
-      .addService(new StreamingGreeter(Prefix))
+      .forPort(8080)
+      .addService(new MultiGreeter(Greeting.response))
       .addService(health.getHealthService)
-      .addService(ProtoReflectionService.newInstance())
       .build()
       .start()
 
     health.setStatus("", HealthCheckResponse.ServingStatus.SERVING)
-    println(s"Server started on port ${me.seroperson.BuildInfo.port}")
+    println(s"Server started on port 8080")
 
     try {
       server.awaitTermination()
@@ -39,19 +36,17 @@ class ByteMarshaller extends Marshaller[Array[Byte]] {
   override def parse(stream: InputStream): Array[Byte] = stream.readAllBytes()
 }
 
-class StreamingGreeter(prefix: String) extends BindableService {
+class MultiGreeter(response: String) extends BindableService {
   override def bindService(): ServerServiceDefinition = {
     val method = MethodDescriptor
       .newBuilder(new ByteMarshaller, new ByteMarshaller)
-      .setType(MethodType.SERVER_STREAMING)
-      .setFullMethodName("greeter.Greeter/StreamGreet")
+      .setType(MethodType.UNARY)
+      .setFullMethodName("greeter.Greeter/Greet")
       .build()
 
     val handler: ServerCallHandler[Array[Byte], Array[Byte]] =
-      ServerCalls.asyncServerStreamingCall((_, responseObserver: StreamObserver[Array[Byte]]) => {
-        for (i <- 1 to 3) {
-          responseObserver.onNext(s"$prefix-$i".getBytes("UTF-8"))
-        }
+      ServerCalls.asyncUnaryCall((_, responseObserver: StreamObserver[Array[Byte]]) => {
+        responseObserver.onNext(response.getBytes("UTF-8"))
         responseObserver.onCompleted()
       })
 

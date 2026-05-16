@@ -6,13 +6,20 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.MethodDescriptor
 import io.grpc.TlsChannelCredentials
+import io.grpc.reflection.v1alpha.ServerReflectionGrpc
+import io.grpc.reflection.v1alpha.ServerReflectionRequest
+import io.grpc.reflection.v1alpha.ServerReflectionResponse
 import io.grpc.stub.ClientCalls
+import io.grpc.stub.StreamObserver
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import scala.concurrent.Await
+import scala.concurrent.Promise
+import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
@@ -204,6 +211,44 @@ trait RequestMaker {
       iterator.asScala.toList
     } finally {
       channel.shutdown().awaitTermination(5, TimeUnit.SECONDS)
+    }
+  }
+
+  /** Lists services via the bidi-streaming reflection method through the proxy. */
+  def runReflectionListServicesUntil(
+      host: String,
+      port: Int,
+      expectedService: String
+  ): Boolean = {
+    try {
+      val services = reflectionListServices(host, port)
+      println(s"Reflection services: $services")
+      if (services.contains(expectedService)) return true
+    } catch {
+      case ex: Exception =>
+        println(s"Reflection exception: ${ex.getMessage}")
+    }
+    Thread.sleep(500)
+    runReflectionListServicesUntil(host, port, expectedService)
+  }
+
+  private def reflectionListServices(host: String, port: Int): Set[String] = {
+    val channel: ManagedChannel =
+      ManagedChannelBuilder.forAddress(host, port).usePlaintext().build()
+    try {
+      val promise = Promise[ServerReflectionResponse]()
+      val responseObserver = new StreamObserver[ServerReflectionResponse] {
+        override def onNext(value: ServerReflectionResponse): Unit = promise.trySuccess(value)
+        override def onError(t: Throwable): Unit = promise.tryFailure(t)
+        override def onCompleted(): Unit = ()
+      }
+      val stub = ServerReflectionGrpc.newStub(channel)
+      val requestObserver = stub.serverReflectionInfo(responseObserver)
+      requestObserver.onNext(ServerReflectionRequest.newBuilder().setListServices("").build())
+      requestObserver.onCompleted()
+      Await.result(promise.future, 10.seconds).getListServicesResponse.getServiceList.asScala.map(_.getName).toSet
+    } finally {
+      channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS)
     }
   }
 

@@ -261,6 +261,131 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
     assert(initial && reloaded)
   }
 
+  test("grpc-multiproject") {
+    val resourceDir = os.Path(BuildInfo.resourceDir) / "grpc-multiproject"
+
+    val tester = new IntegrationTester(
+      daemonMode = false,
+      workspaceSourcePath = resourceDir,
+      millExecutable = os.Path(BuildInfo.exePath)
+    )
+
+    val runThread = new Thread(new Runnable() {
+      override def run(): Unit = {
+        tester.eval(
+          "project-a.liveReloadRun",
+          env = Map("PLUGIN_VERSION" -> BuildInfo.version),
+          stdout = ProcessOutput.Readlines(v => println(v)),
+          mergeErrIntoOut = true,
+          timeoutGracePeriod = 10000
+        )
+      }
+    })
+    runThread.start()
+
+    val initial = runGrpcUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "Greet",
+      Array.emptyByteArray,
+      "Multi-Hi".getBytes("UTF-8")
+    )
+    tester.modifyFile(
+      tester.workspacePath / "project-b" / "src" / "Greeting.scala",
+      _ => os.read(resourceDir / "changes" / "project-b" / "src" / "Greeting.scala.1")
+    )
+    val reloaded = runGrpcUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "Greet",
+      Array.emptyByteArray,
+      "Multi-Yo".getBytes("UTF-8")
+    )
+
+    tester.close()
+
+    assert(initial && reloaded)
+  }
+
+  test("grpc-scala3") {
+    val resourceDir = os.Path(BuildInfo.resourceDir) / "grpc-scala3"
+
+    val tester = new IntegrationTester(
+      daemonMode = false,
+      workspaceSourcePath = resourceDir,
+      millExecutable = os.Path(BuildInfo.exePath)
+    )
+
+    val runThread = new Thread(new Runnable() {
+      override def run(): Unit = {
+        tester.eval(
+          "app.liveReloadRun",
+          env = Map("PLUGIN_VERSION" -> BuildInfo.version),
+          stdout = ProcessOutput.Readlines(v => println(v)),
+          mergeErrIntoOut = true,
+          timeoutGracePeriod = 10000
+        )
+      }
+    })
+    runThread.start()
+
+    val initial = runGrpcUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "Greet",
+      Array.emptyByteArray,
+      "Scala3-Hi".getBytes("UTF-8")
+    )
+    tester.modifyFile(
+      tester.workspacePath / "app" / "src" / "App.scala",
+      _ => os.read(resourceDir / "changes" / "app" / "src" / "App.scala.1")
+    )
+    val reloaded = runGrpcUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "Greet",
+      Array.emptyByteArray,
+      "Scala3-Yo".getBytes("UTF-8")
+    )
+
+    tester.close()
+
+    assert(initial && reloaded)
+  }
+
+  test("grpc-reflection") {
+    val resourceDir = os.Path(BuildInfo.resourceDir) / "grpc-streaming"
+
+    val tester = new IntegrationTester(
+      daemonMode = false,
+      workspaceSourcePath = resourceDir,
+      millExecutable = os.Path(BuildInfo.exePath)
+    )
+
+    val runThread = new Thread(new Runnable() {
+      override def run(): Unit = {
+        tester.eval(
+          "app.liveReloadRun",
+          env = Map("PLUGIN_VERSION" -> BuildInfo.version),
+          stdout = ProcessOutput.Readlines(v => println(v)),
+          mergeErrIntoOut = true,
+          timeoutGracePeriod = 10000
+        )
+      }
+    })
+    runThread.start()
+
+    val ok = runReflectionListServicesUntil("localhost", 9000, "grpc.health.v1.Health")
+
+    tester.close()
+
+    assert(ok)
+  }
+
   test("grpc-tls") {
     val resourceDir = os.Path(BuildInfo.resourceDir) / "grpc-tls"
 

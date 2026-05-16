@@ -6,13 +6,18 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.MethodDescriptor
 import io.grpc.TlsChannelCredentials
+import io.grpc.reflection.v1alpha.ServerReflectionGrpc
+import io.grpc.reflection.v1alpha.ServerReflectionRequest
+import io.grpc.reflection.v1alpha.ServerReflectionResponse
 import io.grpc.stub.ClientCalls
+import io.grpc.stub.StreamObserver
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.gradle.testkit.runner.GradleRunner
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -280,6 +285,57 @@ abstract class LiveReloadTestBase {
             expectedResponse,
             trust,
         )
+    }
+
+    /** Bidi-streaming reflection list-services call through the proxy. */
+    fun reflectionListServices(
+        host: String,
+        port: Int,
+    ): Set<String> {
+        val channel: ManagedChannel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build()
+        try {
+            val future = CompletableFuture<ServerReflectionResponse>()
+            val responseObserver = object : StreamObserver<ServerReflectionResponse> {
+                override fun onNext(value: ServerReflectionResponse) {
+                    future.complete(value)
+                }
+
+                override fun onError(t: Throwable) {
+                    future.completeExceptionally(t)
+                }
+
+                override fun onCompleted() {}
+            }
+            val requestObserver = ServerReflectionGrpc.newStub(channel).serverReflectionInfo(responseObserver)
+            requestObserver.onNext(ServerReflectionRequest.newBuilder().setListServices("").build())
+            requestObserver.onCompleted()
+            return future.get(10, TimeUnit.SECONDS).listServicesResponse.serviceList.map { it.name }.toSet()
+        } finally {
+            channel.shutdown().awaitTermination(5, TimeUnit.SECONDS)
+        }
+    }
+
+    /** Retries reflection list-services until the expected service shows up. */
+    fun runReflectionUntil(
+        isBuildRunning: AtomicBoolean,
+        host: String,
+        port: Int,
+        expectedService: String,
+    ): Boolean {
+        if (!isBuildRunning.get()) {
+            return false
+        }
+        try {
+            val services = reflectionListServices(host, port)
+            if (expectedService in services) {
+                return true
+            }
+            println("Reflection services so far: $services")
+        } catch (ex: Exception) {
+            println("Reflection exception: ${ex.message}")
+        }
+        Thread.sleep(500)
+        return runReflectionUntil(isBuildRunning, host, port, expectedService)
     }
 
     /** Simple marshaller for byte arrays - allows generic GRPC calls without proto. */

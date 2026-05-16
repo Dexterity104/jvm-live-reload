@@ -2,7 +2,7 @@ import io.grpc.{BindableService, MethodDescriptor, ServerCallHandler, ServerServ
 import io.grpc.MethodDescriptor.{Marshaller, MethodType}
 import io.grpc.health.v1.HealthCheckResponse
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
-import io.grpc.protobuf.services.HealthStatusManager
+import io.grpc.protobuf.services.{HealthStatusManager, ProtoReflectionService}
 import io.grpc.stub.{ServerCalls, StreamObserver}
 
 import java.io.{ByteArrayInputStream, InputStream}
@@ -17,6 +17,7 @@ object App {
       .forPort(8080)
       .addService(new StreamingGreeter(Prefix))
       .addService(health.getHealthService)
+      .addService(ProtoReflectionService.newInstance())
       .build()
       .start()
 

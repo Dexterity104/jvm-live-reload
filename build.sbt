@@ -93,6 +93,7 @@ lazy val `sbtLiveReload` = (projectMatrix in file("sbt"))
           "io.grpc" % "grpc-netty-shaded" % "1.72.0" % Test,
           "io.grpc" % "grpc-stub" % "1.72.0" % Test,
           "io.grpc" % "grpc-protobuf" % "1.72.0" % Test,
+          "io.grpc" % "grpc-services" % "1.72.0" % Test,
         )
         case _ => Seq.empty
       }

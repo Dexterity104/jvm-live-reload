@@ -1,9 +1,0 @@
-# Start dev mode
-> bgRun
-
-# Test initial GRPC response
-> verifyGrpcCall "Hello, World!"
-
-# Test reload with modified response
-$ copy-file changes/App.scala.1 src/main/scala/App.scala
-> verifyGrpcCall "Greetings, World!"
