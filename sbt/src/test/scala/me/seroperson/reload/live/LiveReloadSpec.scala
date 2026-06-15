@@ -1,5 +1,8 @@
 package me.seroperson.reload.live
 
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+
 class LiveReloadSpec extends LiveReloadBase {
 
   testEach("http4s-slow-start - concurrent first requests wait for startup") {
@@ -159,6 +162,33 @@ class LiveReloadSpec extends LiveReloadBase {
       )
       verifyHttp("greet", 503, Some("dev server stopped"), proxyPort)
       verifyPortClosed(proxyPort)
+    }
+  }
+
+  testEach(
+    "http4s - propagated env is rolled back when proxy fails to bind",
+    Seq("2.0.0-RC10")
+  ) { sbtVersion =>
+    withRunner("http4s-propagate-env-rollback", sbtVersion) {
+      (runner, proxyPort) =>
+        val blocker = new ServerSocket()
+        blocker.setReuseAddress(true)
+        try {
+          blocker.bind(new InetSocketAddress("localhost", proxyPort))
+          val result = runner.run("bgRun")
+          val logs = result.logs.mkString("\n")
+          assert(
+            !result.succeeded,
+            s"expected bgRun to fail while the proxy port is held, got logs:\n$logs"
+          )
+
+          val check = runner.run("assertEnvRolledBack")
+          val checkLogs = check.logs.mkString("\n")
+          assert(
+            check.succeeded,
+            s"expected JLR_LEAK_CHECK to be rolled back out of the sbt env, got logs:\n$checkLogs"
+          )
+        } finally blocker.close()
     }
   }
 }
