@@ -42,10 +42,11 @@ public class DevServerStart extends BaseDevServerStart<Undertow> {
     }
 
     // Track resources we have already allocated so we can release them if a later
-    // step throws. Set to null after isRunning flips true; BaseDevServerStart.close()
+    // step throws. Set to null once startup succeeds; BaseDevServerStart.close()
     // takes over from there.
     XnioWorker workerToCleanup = null;
     Undertow proxyToCleanup = null;
+    boolean started = false;
     try {
       this.currentGenerationWorker = createWorker();
       workerToCleanup = this.currentGenerationWorker;
@@ -76,15 +77,19 @@ public class DevServerStart extends BaseDevServerStart<Undertow> {
               .setServerOption(UndertowOptions.SHUTDOWN_TIMEOUT, 1000)
               .build();
       proxyToCleanup = proxyServer;
+
+      // Must run before the listener accepts connections; see markRunning().
+      markRunning();
       proxyServer.start();
 
-      appThreadGroup = new ThreadGroup("app");
-
-      isRunning.set(true);
+      started = true;
       // Ownership transferred to the running server; do not clean up below.
       workerToCleanup = null;
       proxyToCleanup = null;
     } finally {
+      if (!started) {
+        markStopped();
+      }
       if (workerToCleanup != null) {
         // start() failed after the worker was created. Release its threads, and
         // null out the field so cleanupServerForOldGeneration() does not later try

@@ -64,14 +64,19 @@ public class GrpcDevServerStart extends BaseDevServerStart<Server> {
     ServerCredentials proxyCredentials = buildProxyServerCredentials();
     boolean proxyTls = !(proxyCredentials instanceof InsecureServerCredentials);
 
+    boolean started = false;
     try {
       var proxyAddress =
           new InetSocketAddress(settings.getProxyGrpcHost(), settings.getProxyGrpcPort());
       proxyServer =
           NettyServerBuilder.forAddress(proxyAddress, proxyCredentials)
               .fallbackHandlerRegistry(new GrpcProxyHandlerRegistry(logger, proxyHandler))
-              .build()
-              .start();
+              .build();
+
+      // Must run before the listener accepts connections; see markRunning().
+      markRunning();
+      proxyServer.start();
+      started = true;
 
       logger.info(
           "🚀 GRPC proxy server started on "
@@ -87,10 +92,11 @@ public class GrpcDevServerStart extends BaseDevServerStart<Server> {
     } catch (IOException e) {
       logger.error("Failed to start GRPC proxy server", e);
       throw new RuntimeException(e);
+    } finally {
+      if (!started) {
+        markStopped();
+      }
     }
-
-    appThreadGroup = new ThreadGroup("app");
-    isRunning.set(true);
   }
 
   @Override

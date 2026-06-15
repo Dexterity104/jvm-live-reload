@@ -95,6 +95,23 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
   }
 
   /**
+   * Marks the server running and allocates the application thread group. Subclasses MUST call this
+   * before the proxy listener accepts connections: a request handled while {@link #isRunning} is
+   * still {@code false} hits the guard in {@link #startInternal}, surfaces as an {@link
+   * UnrecoverableException}, and gets escalated into a permanent {@code close()} of the dev server.
+   */
+  protected void markRunning() {
+    appThreadGroup = new ThreadGroup("app");
+    isRunning.set(true);
+  }
+
+  /** Reverts {@link #markRunning()} when startup fails afterwards. Safe to call if it never ran. */
+  protected void markStopped() {
+    isRunning.set(false);
+    appThreadGroup = null;
+  }
+
+  /**
    * Starts the underlying application server with the given generation.
    *
    * @param generation the reload generation containing the new class loader
