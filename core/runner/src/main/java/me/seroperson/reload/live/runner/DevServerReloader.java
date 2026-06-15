@@ -31,7 +31,7 @@ final class DevServerReloader implements BuildLink, Closeable {
 
   private final Supplier<Boolean> triggerReload;
 
-  private final ClassLoader dependenciesClassLoader;
+  private final URLClassLoader dependenciesClassLoader;
 
   // The current classloader for the application
   private volatile URLClassLoader currentApplicationClassLoader;
@@ -55,7 +55,7 @@ final class DevServerReloader implements BuildLink, Closeable {
   private final AtomicInteger classLoaderVersion = new AtomicInteger(0);
 
   DevServerReloader(
-      ClassLoader dependenciesClassLoader,
+      URLClassLoader dependenciesClassLoader,
       Supplier<CompileResult> compile,
       Supplier<Boolean> triggerReload,
       List<File> monitoredFiles,
@@ -214,15 +214,22 @@ final class DevServerReloader implements BuildLink, Closeable {
 
   @Override
   public void close() {
-    var cl = currentApplicationClassLoader;
+    // Release JAR handles held by the app loader and its dependency parent.
+    var appLoader = currentApplicationClassLoader;
     currentApplicationClassLoader = null;
-    if (cl != null) {
-      try {
-        cl.close();
-      } catch (IOException e) {
-        // best-effort cleanup on shutdown
-      }
-    }
+    closeQuietly(appLoader);
+    closeQuietly(dependenciesClassLoader);
     if (watcher != null) watcher.stop();
+  }
+
+  private static void closeQuietly(URLClassLoader loader) {
+    if (loader == null) {
+      return;
+    }
+    try {
+      loader.close();
+    } catch (IOException e) {
+      // best-effort cleanup on shutdown
+    }
   }
 }
