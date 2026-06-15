@@ -27,8 +27,10 @@ trait LiveReloadModule extends JavaModule {
     HttpServerType
   }
 
-  override def mvnDeps =
-    super.mvnDeps() ++ {
+  // Runtime-only deps for the dev server: kept off the compile classpath and
+  // out of the published POM's compile scope, while staying in runClasspath.
+  override def runMvnDeps =
+    super.runMvnDeps() ++ {
       val webserverDep = liveServerType() match {
         case HttpServerType =>
           mvn"me.seroperson:jvm-live-reload-webserver:${BuildInfo.version}"
