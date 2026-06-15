@@ -23,6 +23,13 @@ class ReloadHandler implements HttpHandler {
 
   @Override
   public void handleRequest(HttpServerExchange httpServerExchange) throws Exception {
+    // reload() blocks for seconds; move off the shared IO thread so other connections
+    // stay responsive during a reload.
+    if (httpServerExchange.isInIoThread()) {
+      httpServerExchange.dispatch(this);
+      return;
+    }
+
     try {
       var wasReloaded = server.reload();
 
