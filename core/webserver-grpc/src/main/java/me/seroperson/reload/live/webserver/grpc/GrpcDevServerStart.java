@@ -69,6 +69,7 @@ public class GrpcDevServerStart extends BaseDevServerStart<Server> {
           new InetSocketAddress(settings.getProxyGrpcHost(), settings.getProxyGrpcPort());
       proxyServer =
           NettyServerBuilder.forAddress(proxyAddress, proxyCredentials)
+              .maxInboundMessageSize(GrpcProxyDefaults.MAX_INBOUND_MESSAGE_SIZE)
               .fallbackHandlerRegistry(new GrpcProxyHandlerRegistry(logger, proxyHandler))
               .build()
               .start();

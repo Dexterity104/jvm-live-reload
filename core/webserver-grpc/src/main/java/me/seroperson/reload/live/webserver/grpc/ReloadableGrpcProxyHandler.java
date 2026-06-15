@@ -125,7 +125,9 @@ class ReloadableGrpcProxyHandler {
             + (useTls ? " (TLS)" : " (plaintext)"));
     ChannelCredentials credentials =
         useTls ? buildTlsCredentials() : InsecureChannelCredentials.create();
-    return Grpc.newChannelBuilderForAddress(targetHost, targetPort, credentials).build();
+    return Grpc.newChannelBuilderForAddress(targetHost, targetPort, credentials)
+        .maxInboundMessageSize(GrpcProxyDefaults.MAX_INBOUND_MESSAGE_SIZE)
+        .build();
   }
 
   private ChannelCredentials buildTlsCredentials() {
